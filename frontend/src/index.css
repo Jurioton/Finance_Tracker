@@ -142,3 +142,18 @@ th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
   .stats { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
   .stat strong { font-size: 1.15rem; }
 }
+
+/* AI features */
+.label-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.suggested { font-size: 0.78rem; font-weight: 600; color: var(--primary); background: #eef2ff; padding: 0.1rem 0.5rem; border-radius: 99px; }
+.badge.ai { background: #ede9fe; color: #6d28d9; }
+.badge.rules { background: #e0f2fe; color: #0369a1; }
+.insights { border-color: #c7d2fe; }
+.insights > p { margin: 0.2rem 0 0.8rem; }
+.insight-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.6rem; }
+.insight { display: flex; gap: 0.6rem; padding: 0.7rem 0.8rem; border-radius: 10px; background: var(--bg); }
+.insight p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.9rem; }
+.insight.warning { background: #fffbeb; }
+.insight.positive { background: #ecfdf5; }
+.insight.tip { background: #eef2ff; }
+.insight-icon { font-size: 1.1rem; line-height: 1.4; }
