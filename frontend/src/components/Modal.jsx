@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { animate, motion, useIsPresent, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
+import { X } from 'lucide-react'
 import { FLING_VELOCITY, project, rubberBand, springs, useMediaQuery } from '../motion'
 
 const DRAG_START = 10 // px of movement before a press on the sheet header becomes a drag
@@ -31,7 +32,7 @@ function Header({ title, onClose, ...rest }) {
   return (
     <div className="modal-header" {...rest}>
       <h3>{title}</h3>
-      <button className="btn ghost" onClick={onClose} aria-label="Close">✕</button>
+      <button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><X size={16} strokeWidth={2.5} /></button>
     </div>
   )
 }
