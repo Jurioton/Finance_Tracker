@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence } from 'motion/react'
 import api, { errorMessage } from '../api'
 import Modal from '../components/Modal'
 import ProgressBar from '../components/ProgressBar'
 import { currentMonth, formatMoney, monthLabel } from '../format'
+import { originOf } from '../motion'
 
 const STATUS_TEXT = { ok: 'On track', warning: 'Over 80% used', over: 'Over budget' }
 
@@ -11,6 +13,7 @@ export default function Budgets() {
   const [budgets, setBudgets] = useState([])
   const [categories, setCategories] = useState([])
   const [editing, setEditing] = useState(null)
+  const [origin, setOrigin] = useState(null)
   const [error, setError] = useState('')
 
   const load = () =>
@@ -35,7 +38,7 @@ export default function Budgets() {
         <h1>Budgets</h1>
         <div className="actions">
           <input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
-          <button className="btn primary" disabled={!unbudgeted.length} onClick={() => setEditing({})}>+ Add budget</button>
+          <button className="btn primary" disabled={!unbudgeted.length} onClick={(e) => { setOrigin(originOf(e)); setEditing({}) }}>+ Add budget</button>
         </div>
       </div>
       {error && <p className="error">{error}</p>}
@@ -54,7 +57,7 @@ export default function Budgets() {
       ) : (
         <div className="grid-3">
           {budgets.map((b) => (
-            <div key={b.id} className={`card budget ${b.status}`}>
+            <div key={b.category.id} className={`card budget ${b.status}`}>
               <div className="page-header">
                 <h3>{b.category.name}</h3>
                 <span className={`badge ${b.status}`}>{STATUS_TEXT[b.status]}</span>
@@ -65,7 +68,7 @@ export default function Budgets() {
                 {b.limit - b.spent >= 0 ? `${formatMoney(b.limit - b.spent)} left` : `${formatMoney(b.spent - b.limit)} over`} · {b.percent}%
               </p>
               <div className="actions">
-                <button className="btn ghost small" onClick={() => setEditing(b)}>Edit</button>
+                <button className="btn ghost small" onClick={(e) => { setOrigin(originOf(e)); setEditing(b) }}>Edit</button>
                 <button className="btn ghost small danger" onClick={() => remove(b)}>Delete</button>
               </div>
             </div>
@@ -73,15 +76,17 @@ export default function Budgets() {
         </div>
       )}
 
+      <AnimatePresence>
       {editing && (
-        <BudgetForm initial={editing} month={month} categories={unbudgeted}
+        <BudgetForm key="budget-form" origin={origin} initial={editing} month={month} categories={unbudgeted}
           onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />
       )}
+      </AnimatePresence>
     </div>
   )
 }
 
-function BudgetForm({ initial, month, categories, onClose, onSaved }) {
+function BudgetForm({ initial, month, categories, origin, onClose, onSaved }) {
   const [form, setForm] = useState({ category_id: '', limit: initial.limit || '' })
   const [error, setError] = useState('')
   const submit = async (e) => {
@@ -95,7 +100,7 @@ function BudgetForm({ initial, month, categories, onClose, onSaved }) {
     }
   }
   return (
-    <Modal title={initial.id ? `Edit ${initial.category.name} budget` : `New budget for ${monthLabel(month)}`} onClose={onClose}>
+    <Modal title={initial.id ? `Edit ${initial.category.name} budget` : `New budget for ${monthLabel(month)}`} origin={origin} onClose={onClose}>
       <form onSubmit={submit} className="form">
         {!initial.id && (
           <label>Category

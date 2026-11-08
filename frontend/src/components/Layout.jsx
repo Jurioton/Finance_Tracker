@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { motion } from 'motion/react'
 import { useAuth } from '../AuthContext'
+import { springs } from '../motion'
 
 const links = [
   { to: '/', label: 'Dashboard' },
@@ -17,7 +19,13 @@ export default function Layout() {
         <nav>
           {links.map((l) => (
             <NavLink key={l.to} to={l.to} end={l.to === '/'}>
-              {l.label}
+              {({ isActive }) => (
+                <>
+                  {/* One highlight that slides between tabs instead of jumping */}
+                  {isActive && <motion.span layoutId="nav-pill" className="nav-pill" transition={springs.pill} />}
+                  <span className="nav-label">{l.label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>

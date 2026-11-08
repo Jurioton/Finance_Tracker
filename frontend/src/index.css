@@ -10,6 +10,8 @@
   --expense: #dc2626;
   --warning: #d97706;
   --radius: 12px;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-overlay: 0 24px 48px -12px rgb(0 0 0 / 0.25);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
   background: var(--bg);
@@ -35,14 +37,24 @@ input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -
 /* Layout */
 .topbar {
   display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
-  padding: 0.8rem 1.5rem; background: var(--card); border-bottom: 1px solid var(--border);
+  padding: 0.8rem 1.5rem; border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 10;
+  /* Glass: content scrolls underneath, still readable */
+  background: rgb(255 255 255 / 0.72);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar { background: var(--card); }
 }
 .brand { font-weight: 700; font-size: 1.1rem; }
 .topbar nav { display: flex; gap: 0.25rem; flex: 1; flex-wrap: wrap; }
-.topbar nav a { padding: 0.45rem 0.8rem; border-radius: 8px; text-decoration: none; color: var(--muted); font-weight: 500; }
-.topbar nav a:hover { background: var(--bg); }
-.topbar nav a.active { background: #eef2ff; color: var(--primary); }
+.topbar nav a { position: relative; padding: 0.45rem 0.8rem; border-radius: 8px; text-decoration: none; color: var(--muted); font-weight: 500; white-space: nowrap; transition: color 0.15s, background-color 0.15s; }
+.topbar nav a:hover { background: rgb(0 0 0 / 0.04); }
+.topbar nav a.active { color: var(--primary); }
+.topbar nav a.active:hover { background: transparent; }
+.nav-pill { position: absolute; inset: 0; border-radius: 8px; background: #eef2ff; }
+.nav-label { position: relative; }
 .user { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); }
 .content { max-width: 1150px; margin: 0 auto; padding: 1.5rem; }
 
@@ -50,7 +62,7 @@ input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -
 .page-header h3 { margin: 0; }
 .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 
-.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem; margin-bottom: 1rem; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem; margin-bottom: 1rem; box-shadow: var(--shadow-card); }
 .card .page-header { margin-bottom: 0.5rem; }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1rem; }
 .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
@@ -74,8 +86,12 @@ input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -
   font: inherit; font-weight: 500; cursor: pointer;
   padding: 0.55rem 1rem; border-radius: 8px; border: 1px solid var(--border);
   background: #fff; color: var(--text);
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease-out, background-color 0.15s, filter 0.1s;
 }
 .btn:hover { background: var(--bg); }
+/* Feedback the moment the pointer goes down, not on release */
+.btn:active:not(:disabled) { transform: scale(0.97); filter: brightness(0.94); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 .btn.primary:hover { background: var(--primary-dark); }
@@ -86,7 +102,7 @@ input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -
 
 /* Progress */
 .progress { height: 10px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 0.4rem 0; }
-.progress-fill { height: 100%; background: var(--primary); border-radius: 99px; transition: width 0.3s; }
+.progress-fill { width: 100%; height: 100%; background: var(--primary); border-radius: 99px; transform: translateX(-100%); }
 .progress-fill.ok { background: var(--income); }
 .progress-fill.warning { background: var(--warning); }
 .progress-fill.over { background: var(--expense); }
@@ -116,17 +132,40 @@ th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
 .tag.income { background: #d1fae5; }
 .tag.expense { background: #fee2e2; }
 
-/* Modal */
-.modal-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 0.4); display: grid; place-items: center; padding: 1rem; z-index: 50; }
-.modal { background: var(--card); border-radius: var(--radius); padding: 1.3rem; width: 100%; max-width: 420px; }
+/* Modal: centred dialog on desktop, bottom sheet on phones */
+.modal-root { position: fixed; inset: 0; display: grid; place-items: center; padding: 1rem; z-index: 50; }
+.modal-root.leaving { pointer-events: none; }
+.modal-scrim {
+  position: absolute; inset: 0; background: rgb(15 23 42 / 0.35);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.modal {
+  position: relative; background: var(--card); border-radius: var(--radius); padding: 1.3rem;
+  width: 100%; max-width: 420px; box-shadow: var(--shadow-overlay);
+}
+.modal-root.sheet { place-items: end stretch; padding: 0; }
+.modal.sheet {
+  max-width: none; max-height: 92vh; overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 16px 16px 0 0; padding: 0 1.1rem calc(1.2rem + env(safe-area-inset-bottom));
+  /* The second shadow paints card colour below the sheet, so no gap shows when it's pulled up */
+  box-shadow: 0 -8px 32px rgb(0 0 0 / 0.18), 0 240px 0 0 var(--card);
+}
+.sheet-grab { touch-action: none; user-select: none; cursor: grab; padding-top: 0.5rem; }
+.sheet-grab:active { cursor: grabbing; }
+.sheet-handle { width: 36px; height: 5px; border-radius: 99px; background: #d1d5db; margin: 0 auto 0.6rem; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
 .modal-header h3 { margin: 0; }
 .form { display: flex; flex-direction: column; gap: 0.8rem; }
 .form label, .auth-card label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; font-weight: 500; }
 .toggle { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.toggle button { font: inherit; padding: 0.55rem; border: 0; background: #fff; cursor: pointer; color: var(--muted); }
-.toggle button.active.expense { background: #fee2e2; color: var(--expense); font-weight: 600; }
-.toggle button.active.income { background: #d1fae5; color: var(--income); font-weight: 600; }
+.toggle button { position: relative; font: inherit; padding: 0.55rem; border: 0; background: #fff; cursor: pointer; color: var(--muted); touch-action: manipulation; transition: color 0.15s; }
+.toggle button.active { font-weight: 600; }
+.toggle button.active.expense { color: var(--expense); }
+.toggle button.active.income { color: var(--income); }
+.toggle-pill { position: absolute; inset: 0; }
+.toggle-pill.expense { background: #fee2e2; }
+.toggle-pill.income { background: #d1fae5; }
+.toggle-label { position: relative; }
 
 /* Auth */
 .auth-page { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
@@ -145,7 +184,7 @@ th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
 
 /* AI features */
 .label-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
-.suggested { font-size: 0.78rem; font-weight: 600; color: var(--primary); background: #eef2ff; padding: 0.1rem 0.5rem; border-radius: 99px; }
+.suggested { display: inline-block; font-size: 0.78rem; font-weight: 600; color: var(--primary); background: #eef2ff; padding: 0.1rem 0.5rem; border-radius: 99px; }
 .badge.ai { background: #ede9fe; color: #6d28d9; }
 .badge.rules { background: #e0f2fe; color: #0369a1; }
 .insights { border-color: #c7d2fe; }
@@ -157,3 +196,11 @@ th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
 .insight.positive { background: #ecfdf5; }
 .insight.tip { background: #eef2ff; }
 .insight-icon { font-size: 1.1rem; line-height: 1.4; }
+select.just-suggested { box-shadow: 0 0 0 3px #c7d2fe; border-color: #a5b4fc; }
+select { transition: box-shadow 0.2s, border-color 0.2s; }
+
+/* Reduced motion: Motion handles its own animations (MotionConfig); this covers the CSS ones */
+@media (prefers-reduced-motion: reduce) {
+  .btn, .topbar nav a, .toggle button, select { transition: none; }
+  .btn:active:not(:disabled) { transform: none; }
+}
