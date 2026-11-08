@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useReducedMotion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import {
   CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import api, { errorMessage } from '../api'
+import AnimatedNumber from '../components/AnimatedNumber'
 import Insights from '../components/Insights'
 import ProgressBar from '../components/ProgressBar'
 import { currentMonth, formatMoney, monthLabel } from '../format'
@@ -16,6 +18,9 @@ export default function Dashboard() {
   const [trends, setTrends] = useState([])
   const [goals, setGoals] = useState([])
   const [error, setError] = useState('')
+  const reduce = useReducedMotion()
+  // Short chart tweens, none at all with reduced motion
+  const chartAnim = { isAnimationActive: !reduce, animationDuration: 400 }
 
   useEffect(() => {
     Promise.all([
@@ -42,10 +47,10 @@ export default function Dashboard() {
       </div>
 
       <div className="stats">
-        <Stat label="Income" value={formatMoney(summary.income)} tone="income" />
-        <Stat label="Expenses" value={formatMoney(summary.expenses)} tone="expense" />
-        <Stat label="Balance" value={formatMoney(summary.balance)} tone={summary.balance >= 0 ? 'income' : 'expense'} />
-        <Stat label="Savings rate" value={`${summary.savings_rate}%`} />
+        <Stat label="Income" value={summary.income} format={formatMoney} tone="income" />
+        <Stat label="Expenses" value={summary.expenses} format={formatMoney} tone="expense" />
+        <Stat label="Balance" value={summary.balance} format={formatMoney} tone={summary.balance >= 0 ? 'income' : 'expense'} />
+        <Stat label="Savings rate" value={summary.savings_rate} format={formatPercent} />
       </div>
 
       <Insights month={month} />
@@ -54,7 +59,7 @@ export default function Dashboard() {
         <div className="card alerts">
           <h3>⚠️ Budget alerts</h3>
           {summary.budget_alerts.map((b) => (
-            <div key={b.id} className="alert-row">
+            <div key={b.category.id} className="alert-row">
               <span>
                 <strong>{b.category.name}</strong>: {formatMoney(b.spent)} of {formatMoney(b.limit)} ({b.percent}%)
                 {b.status === 'over' ? ' — over budget!' : ' — getting close'}
@@ -73,7 +78,7 @@ export default function Dashboard() {
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
-                <Pie data={summary.by_category} dataKey="total" nameKey="category" innerRadius={60} outerRadius={100}>
+                <Pie data={summary.by_category} dataKey="total" nameKey="category" innerRadius={60} outerRadius={100} {...chartAnim}>
                   {summary.by_category.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(v) => formatMoney(v)} />
@@ -92,8 +97,8 @@ export default function Dashboard() {
               <YAxis fontSize={12} width={70} />
               <Tooltip formatter={(v) => formatMoney(v)} />
               <Legend />
-              <Line type="monotone" dataKey="income" name="Income" stroke="#10b981" strokeWidth={2} />
-              <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#ef4444" strokeWidth={2} />
+              <Line type="monotone" dataKey="income" name="Income" stroke="#10b981" strokeWidth={2} {...chartAnim} />
+              <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#ef4444" strokeWidth={2} {...chartAnim} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -121,11 +126,14 @@ export default function Dashboard() {
   )
 }
 
-function Stat({ label, value, tone }) {
+const formatPercent = (v) => `${Math.round(v * 10) / 10}%`
+
+// Values spring from last month's number to this month's when the month changes
+function Stat({ label, value, format, tone }) {
   return (
     <div className="card stat">
       <span className="muted">{label}</span>
-      <strong className={tone}>{value}</strong>
+      <AnimatedNumber value={value} format={format} className={tone} />
     </div>
   )
 }

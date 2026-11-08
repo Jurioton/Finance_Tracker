@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import api, { errorMessage } from '../api'
 import Modal from '../components/Modal'
 import { formatDate, formatMoney, today } from '../format'
+import { originOf, springs } from '../motion'
 
 const emptyForm = { type: 'expense', amount: '', date: today(), category_id: '', note: '' }
 
@@ -11,6 +13,7 @@ export default function Transactions() {
   const [filters, setFilters] = useState({ month: '', type: '', category_id: '', search: '' })
   const [editing, setEditing] = useState(null) // null = closed, {} = new, {id,...} = edit
   const [showCategory, setShowCategory] = useState(false)
+  const [origin, setOrigin] = useState(null) // where the open form grows from
   const [error, setError] = useState('')
 
   // Only send filters that have a value
@@ -49,9 +52,9 @@ export default function Transactions() {
       <div className="page-header">
         <h1>Transactions</h1>
         <div className="actions">
-          <button className="btn" onClick={() => setShowCategory(true)}>+ Category</button>
+          <button className="btn" onClick={(e) => { setOrigin(originOf(e)); setShowCategory(true) }}>+ Category</button>
           <button className="btn" onClick={exportCsv}>Export CSV</button>
-          <button className="btn primary" onClick={() => setEditing({})}>+ Add transaction</button>
+          <button className="btn primary" onClick={(e) => { setOrigin(originOf(e)); setEditing({}) }}>+ Add transaction</button>
         </div>
       </div>
 
@@ -90,40 +93,50 @@ export default function Transactions() {
                 <tr><th>Date</th><th>Category</th><th>Description</th><th className="right">Amount</th><th /></tr>
               </thead>
               <tbody>
+                <AnimatePresence initial={false}>
                 {transactions.map((t) => (
-                  <tr key={t.id}>
+                  <motion.tr key={t.id} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }} transition={springs.value}>
                     <td>{formatDate(t.date)}</td>
                     <td><span className={`tag ${t.type}`}>{t.category.name}</span></td>
                     <td>{t.note}</td>
                     <td className={`right ${t.type}`}>{t.type === 'expense' ? '−' : '+'}{formatMoney(t.amount)}</td>
                     <td className="right nowrap">
-                      <button className="btn ghost small" onClick={() => setEditing(t)}>Edit</button>
+                      <button className="btn ghost small" onClick={(e) => { setOrigin(originOf(e)); setEditing(t) }}>Edit</button>
                       <button className="btn ghost small danger" onClick={() => remove(t)}>Delete</button>
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
+                </AnimatePresence>
               </tbody>
             </table>
           </div>
         )}
       </div>
 
+      <AnimatePresence>
       {editing && (
         <TransactionForm
+          key="transaction-form"
+          origin={origin}
           initial={editing}
           categories={categories}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load() }}
         />
       )}
+      </AnimatePresence>
+      <AnimatePresence>
       {showCategory && (
-        <CategoryForm onClose={() => setShowCategory(false)} onSaved={() => { setShowCategory(false); loadCategories() }} />
+        <CategoryForm key="category-form" origin={origin}
+          onClose={() => setShowCategory(false)} onSaved={() => { setShowCategory(false); loadCategories() }} />
       )}
+      </AnimatePresence>
     </div>
   )
 }
 
-function TransactionForm({ initial, categories, onClose, onSaved }) {
+function TransactionForm({ initial, categories, origin, onClose, onSaved }) {
   const [form, setForm] = useState(
     initial.id
       ? { type: initial.type, amount: initial.amount, date: initial.date, category_id: initial.category.id, note: initial.note }
@@ -164,13 +177,14 @@ function TransactionForm({ initial, categories, onClose, onSaved }) {
   }
 
   return (
-    <Modal title={initial.id ? 'Edit transaction' : 'Add transaction'} onClose={onClose}>
+    <Modal title={initial.id ? 'Edit transaction' : 'Add transaction'} origin={origin} onClose={onClose}>
       <form onSubmit={submit} className="form">
         <div className="toggle">
           {['expense', 'income'].map((t) => (
             <button type="button" key={t} className={form.type === t ? `active ${t}` : ''}
               onClick={() => { pickedByHand.current = Boolean(initial.id); setSuggestion(null); setForm({ ...form, type: t, category_id: '' }) }}>
-              {t === 'expense' ? 'Expense' : 'Income'}
+              {form.type === t && <motion.span layoutId="type-pill" className={`toggle-pill ${t}`} transition={springs.pill} />}
+              <span className="toggle-label">{t === 'expense' ? 'Expense' : 'Income'}</span>
             </button>
           ))}
         </div>
@@ -185,13 +199,21 @@ function TransactionForm({ initial, categories, onClose, onSaved }) {
         <label>
           <span className="label-row">
             Category
-            {suggestion && (
-              <span className="suggested" title={suggestion.engine === 'ai' ? 'Suggested by Claude' : 'Suggested from keywords and your history'}>
-                ✨ Auto-suggested{suggestion.engine === 'ai' ? ' by AI' : ''}
-              </span>
-            )}
+            <AnimatePresence>
+              {suggestion && (
+                // Materializes in so it's clear *why* the category just changed
+                <motion.span key="suggested" className="suggested"
+                  title={suggestion.engine === 'ai' ? 'Suggested by Claude' : 'Suggested from keywords and your history'}
+                  initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+                  animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+                  transition={springs.sheet}>
+                  ✨ Auto-suggested{suggestion.engine === 'ai' ? ' by AI' : ''}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </span>
-          <select required value={form.category_id} onChange={(e) => {
+          <select required className={suggestion ? 'just-suggested' : ''} value={form.category_id} onChange={(e) => {
             pickedByHand.current = true
             setSuggestion(null)
             setForm({ ...form, category_id: e.target.value })
@@ -210,7 +232,7 @@ function TransactionForm({ initial, categories, onClose, onSaved }) {
   )
 }
 
-function CategoryForm({ onClose, onSaved }) {
+function CategoryForm({ origin, onClose, onSaved }) {
   const [form, setForm] = useState({ name: '', type: 'expense' })
   const [error, setError] = useState('')
   const submit = async (e) => {
@@ -223,7 +245,7 @@ function CategoryForm({ onClose, onSaved }) {
     }
   }
   return (
-    <Modal title="New category" onClose={onClose}>
+    <Modal title="New category" origin={origin} onClose={onClose}>
       <form onSubmit={submit} className="form">
         <label>Name
           <input required maxLength={50} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />

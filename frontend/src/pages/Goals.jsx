@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence } from 'motion/react'
 import api, { errorMessage } from '../api'
 import Modal from '../components/Modal'
 import ProgressBar from '../components/ProgressBar'
 import { formatDate, formatMoney } from '../format'
+import { originOf } from '../motion'
 
 export default function Goals() {
   const [goals, setGoals] = useState([])
   const [editing, setEditing] = useState(null)
   const [contributing, setContributing] = useState(null)
+  const [origin, setOrigin] = useState(null)
   const [error, setError] = useState('')
 
   const load = () => api.get('/goals').then((r) => setGoals(r.data)).catch((e) => setError(errorMessage(e)))
@@ -23,7 +26,7 @@ export default function Goals() {
     <div>
       <div className="page-header">
         <h1>Savings goals</h1>
-        <button className="btn primary" onClick={() => setEditing({})}>+ New goal</button>
+        <button className="btn primary" onClick={(e) => { setOrigin(originOf(e)); setEditing({}) }}>+ New goal</button>
       </div>
       {error && <p className="error">{error}</p>}
 
@@ -45,8 +48,8 @@ export default function Goals() {
               </p>
               {g.monthly_needed && <p className="hint">Save about {formatMoney(g.monthly_needed)} a month to reach it on time.</p>}
               <div className="actions">
-                {!g.completed && <button className="btn small primary" onClick={() => setContributing(g)}>+ Add money</button>}
-                <button className="btn ghost small" onClick={() => setEditing(g)}>Edit</button>
+                {!g.completed && <button className="btn small primary" onClick={(e) => { setOrigin(originOf(e)); setContributing(g) }}>+ Add money</button>}
+                <button className="btn ghost small" onClick={(e) => { setOrigin(originOf(e)); setEditing(g) }}>Edit</button>
                 <button className="btn ghost small danger" onClick={() => remove(g)}>Delete</button>
               </div>
             </div>
@@ -54,15 +57,21 @@ export default function Goals() {
         </div>
       )}
 
-      {editing && <GoalForm initial={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
-      {contributing && (
-        <ContributeForm goal={contributing} onClose={() => setContributing(null)} onSaved={() => { setContributing(null); load() }} />
-      )}
+      <AnimatePresence>
+        {editing && <GoalForm key="goal-form" origin={origin} initial={editing}
+          onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {contributing && (
+          <ContributeForm key="contribute-form" origin={origin} goal={contributing}
+            onClose={() => setContributing(null)} onSaved={() => { setContributing(null); load() }} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
-function GoalForm({ initial, onClose, onSaved }) {
+function GoalForm({ initial, origin, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: initial.name || '',
     target_amount: initial.target_amount || '',
@@ -87,7 +96,7 @@ function GoalForm({ initial, onClose, onSaved }) {
     }
   }
   return (
-    <Modal title={initial.id ? 'Edit goal' : 'New goal'} onClose={onClose}>
+    <Modal title={initial.id ? 'Edit goal' : 'New goal'} origin={origin} onClose={onClose}>
       <form onSubmit={submit} className="form">
         <label>Name
           <input required maxLength={100} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -110,7 +119,7 @@ function GoalForm({ initial, onClose, onSaved }) {
   )
 }
 
-function ContributeForm({ goal, onClose, onSaved }) {
+function ContributeForm({ goal, origin, onClose, onSaved }) {
   const [amount, setAmount] = useState('')
   const [error, setError] = useState('')
   const submit = async (e) => {
@@ -123,10 +132,10 @@ function ContributeForm({ goal, onClose, onSaved }) {
     }
   }
   return (
-    <Modal title={`Add money to "${goal.name}"`} onClose={onClose}>
+    <Modal title={`Add money to "${goal.name}"`} origin={origin} onClose={onClose}>
       <form onSubmit={submit} className="form">
         <label>Amount
-          <input type="number" min="0.01" step="0.01" required autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <input type="number" min="0.01" step="0.01" required value={amount} onChange={(e) => setAmount(e.target.value)} />
         </label>
         {error && <p className="error">{error}</p>}
         <button className="btn primary">Add</button>
