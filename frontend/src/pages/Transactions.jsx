@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import api, { errorMessage } from '../api'
 import Modal from '../components/Modal'
 import { formatDate, formatMoney, today } from '../format'
@@ -68,7 +68,7 @@ export default function Transactions() {
             <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
           ))}
         </select>
-        <input placeholder="Search notes…" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
+        <input placeholder="Search descriptions…" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
         {Object.keys(params).length > 0 && (
           <button className="btn ghost" onClick={() => setFilters({ month: '', type: '', category_id: '', search: '' })}>Clear</button>
         )}
@@ -87,7 +87,7 @@ export default function Transactions() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Date</th><th>Category</th><th>Note</th><th className="right">Amount</th><th /></tr>
+                <tr><th>Date</th><th>Category</th><th>Description</th><th className="right">Amount</th><th /></tr>
               </thead>
               <tbody>
                 {transactions.map((t) => (
@@ -130,7 +130,26 @@ function TransactionForm({ initial, categories, onClose, onSaved }) {
       : emptyForm,
   )
   const [error, setError] = useState('')
+  const [suggestion, setSuggestion] = useState(null) // { engine } when the category was auto-filled
+  const pickedByHand = useRef(Boolean(initial.id))
   const options = categories.filter((c) => c.type === form.type)
+
+  // Auto-categorize: when the note changes, ask the backend for a category (waits until typing pauses)
+  useEffect(() => {
+    if (pickedByHand.current || form.note.trim().length < 3) return
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await api.post('/ai/categorize', { note: form.note, type: form.type })
+        if (data.category && !pickedByHand.current) {
+          setForm((f) => ({ ...f, category_id: data.category.id }))
+          setSuggestion({ engine: data.engine })
+        }
+      } catch {
+        // Suggestions are optional; ignore errors
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [form.note, form.type])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -150,7 +169,7 @@ function TransactionForm({ initial, categories, onClose, onSaved }) {
         <div className="toggle">
           {['expense', 'income'].map((t) => (
             <button type="button" key={t} className={form.type === t ? `active ${t}` : ''}
-              onClick={() => setForm({ ...form, type: t, category_id: '' })}>
+              onClick={() => { pickedByHand.current = Boolean(initial.id); setSuggestion(null); setForm({ ...form, type: t, category_id: '' }) }}>
               {t === 'expense' ? 'Expense' : 'Income'}
             </button>
           ))}
@@ -159,17 +178,30 @@ function TransactionForm({ initial, categories, onClose, onSaved }) {
           <input type="number" min="0.01" step="0.01" required value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })} />
         </label>
-        <label>Category
-          <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
+        <label>Description
+          <input maxLength={255} placeholder="e.g. Swiggy dinner, Uber to office" value={form.note}
+            onChange={(e) => setForm({ ...form, note: e.target.value })} />
+        </label>
+        <label>
+          <span className="label-row">
+            Category
+            {suggestion && (
+              <span className="suggested" title={suggestion.engine === 'ai' ? 'Suggested by Claude' : 'Suggested from keywords and your history'}>
+                ✨ Auto-suggested{suggestion.engine === 'ai' ? ' by AI' : ''}
+              </span>
+            )}
+          </span>
+          <select required value={form.category_id} onChange={(e) => {
+            pickedByHand.current = true
+            setSuggestion(null)
+            setForm({ ...form, category_id: e.target.value })
+          }}>
             <option value="">Choose…</option>
             {options.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
         <label>Date
           <input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-        </label>
-        <label>Note
-          <input maxLength={255} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
         </label>
         {error && <p className="error">{error}</p>}
         <button className="btn primary">Save</button>

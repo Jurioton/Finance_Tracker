@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import CORS_ORIGINS
 from .database import Base, engine
-from .routers import auth, budgets, categories, dashboard, goals, transactions
+from .routers import ai, auth, budgets, categories, dashboard, goals, transactions
 
 # Creates the SQLite tables on startup if they don't exist yet.
 Base.metadata.create_all(bind=engine)
@@ -22,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for router in (auth.router, categories.router, transactions.router, budgets.router, goals.router, dashboard.router):
+for router in (auth.router, categories.router, transactions.router, budgets.router, goals.router, dashboard.router, ai.router):
     app.include_router(router)
 
 

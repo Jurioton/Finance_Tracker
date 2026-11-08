@@ -2,7 +2,7 @@
 
 A full stack web app to record income and expenses, set monthly budgets, see spending patterns, and track savings goals.
 
-**Stack:** React (Vite) · FastAPI · SQLAlchemy · SQLite · JWT auth · Recharts
+**Stack:** React (Vite) · FastAPI · SQLAlchemy · SQLite · JWT auth · Recharts · Claude API (optional)
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
@@ -14,6 +14,25 @@ A full stack web app to record income and expenses, set monthly budgets, see spe
 - **Budgets:** set a monthly limit per expense category. Each budget shows how much is spent and turns amber at 80% and red when you go over. Alerts also show on the dashboard.
 - **Dashboard:** monthly income, expenses, balance and savings rate; a donut chart of spending by category; a 6‑month income vs expenses trend line.
 - **Savings goals:** set a target and optional deadline, add money over time, and see progress plus how much you need to save each month to finish on time.
+- **✨ Auto-categorize (AI):** type a description like "Zomato biryani" or "Uber to office" and the category is filled in for you. It also learns from how you categorized past transactions.
+- **✨ Monthly insights (AI):** the dashboard shows a short summary of your month and personalised tips: spending changes vs last month, categories that jumped, budgets at risk (with a daily allowance), savings rate, and whether you're on track for your goals.
+
+## AI features and the API key
+
+Both AI features work **out of the box with no API key**, using a built-in rules engine (keyword lists, your own transaction history, and month-over-month calculations). The dashboard shows a **Smart rules** badge in this mode.
+
+To have Claude write the insights and pick categories, set an Anthropic API key before starting the backend. The badge then shows **AI**.
+
+```bash
+# macOS/Linux
+export ANTHROPIC_API_KEY=sk-ant-...
+# Windows PowerShell
+$env:ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+Get a key at https://console.anthropic.com. If a Claude request fails for any reason (no network, rate limit), the app falls back to the rules engine, so it never breaks. Insights are cached per month until your data changes, so reloading the dashboard doesn't call the API again. The code lives in `backend/app/ai.py`.
+
+![Auto-categorize](docs/screenshots/auto-categorize.png)
 
 ## Project structure
 
@@ -27,7 +46,8 @@ backend/
     schemas.py       Pydantic models that validate requests and shape responses
     security.py      password hashing, JWT creation, current-user dependency
     services.py      shared logic: budget status, goal progress, default categories
-    routers/         one file per feature: auth, categories, transactions, budgets, goals, dashboard
+    ai.py            AI features: Claude calls + offline rules fallback
+    routers/         one file per feature: auth, categories, transactions, budgets, goals, dashboard, ai
   tests/             pytest API tests (in-memory database)
   requirements.txt
 frontend/
@@ -100,6 +120,9 @@ All endpoints except register and login need an `Authorization: Bearer <token>` 
 | POST | `/goals/{id}/contribute` | Add money to a goal |
 | GET | `/dashboard/summary` | Month totals, spending by category, budget alerts |
 | GET | `/dashboard/trends` | Income and expenses per month (`months`, `end_month`) |
+| GET | `/ai/status` | Whether Claude is enabled |
+| POST | `/ai/categorize` | Suggest a category for `{note, type}` |
+| GET | `/ai/insights` | Summary and tips for a `month` |
 
 ## Configuration
 
@@ -111,6 +134,8 @@ Set these environment variables for anything beyond local development:
 | `DATABASE_URL` | `sqlite:///./finance.db` | Database location |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated frontend URLs allowed to call the API |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | How long a login lasts |
+| `ANTHROPIC_API_KEY` | not set | Turns on Claude for the AI features (optional) |
+| `AI_MODEL` | `claude-opus-5-5` | Which Claude model to use |
 
 ## Screenshots
 

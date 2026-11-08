@@ -4,6 +4,7 @@ import {
   CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import api, { errorMessage } from '../api'
+import Insights from '../components/Insights'
 import ProgressBar from '../components/ProgressBar'
 import { currentMonth, formatMoney, monthLabel } from '../format'
 
@@ -46,6 +47,8 @@ export default function Dashboard() {
         <Stat label="Balance" value={formatMoney(summary.balance)} tone={summary.balance >= 0 ? 'income' : 'expense'} />
         <Stat label="Savings rate" value={`${summary.savings_rate}%`} />
       </div>
+
+      <Insights month={month} />
 
       {summary.budget_alerts.length > 0 && (
         <div className="card alerts">

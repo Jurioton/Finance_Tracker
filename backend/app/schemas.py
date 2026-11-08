@@ -141,3 +141,35 @@ class TrendPoint(BaseModel):
     month: str
     income: float
     expenses: float
+
+
+# ---------- AI ----------
+Engine = Literal["ai", "rules"]
+
+
+class AIStatus(BaseModel):
+    ai_enabled: bool
+    model: str | None
+
+
+class CategorizeRequest(BaseModel):
+    note: str = Field(min_length=1, max_length=255)
+    type: TxType
+
+
+class CategorizeResponse(BaseModel):
+    category: CategoryOut | None
+    engine: Engine
+
+
+class InsightOut(BaseModel):
+    kind: Literal["positive", "warning", "info", "tip"]
+    title: str
+    text: str
+
+
+class InsightsResponse(BaseModel):
+    month: str
+    summary: str
+    insights: list[InsightOut]
+    engine: Engine
