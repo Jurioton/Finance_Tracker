@@ -146,3 +146,7 @@ Set these environment variables for anything beyond local development:
 | Goals | Mobile |
 |---|---|
 | ![Goals](docs/screenshots/goals.png) | ![Mobile](docs/screenshots/mobile.png) |
+
+| Dark mode | Mobile (dark) |
+|---|---|
+| ![Dashboard in dark mode](docs/screenshots/dashboard-dark.png) | ![Mobile dark](docs/screenshots/mobile-dark.png) |

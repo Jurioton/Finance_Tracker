@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
+import { CalendarDays, Pencil, Plus, Target, Trash2 } from 'lucide-react'
+import { SYSTEM } from '../categories'
+import Ring from '../components/Ring'
 import api, { errorMessage } from '../api'
 import Modal from '../components/Modal'
-import ProgressBar from '../components/ProgressBar'
 import { formatDate, formatMoney } from '../format'
 import { originOf } from '../motion'
 
@@ -25,32 +27,48 @@ export default function Goals() {
   return (
     <div>
       <div className="page-header">
-        <h1>Savings goals</h1>
-        <button className="btn primary" onClick={(e) => { setOrigin(originOf(e)); setEditing({}) }}>+ New goal</button>
+        <h1 className="large-title">Goals</h1>
+        <button className="btn primary" onClick={(e) => { setOrigin(originOf(e)); setEditing({}) }}><Plus size={17} strokeWidth={2.5} />New goal</button>
       </div>
       {error && <p className="error">{error}</p>}
 
       {goals.length === 0 ? (
-        <div className="card"><p className="muted">No goals yet. Create one, like "Emergency fund" or "New laptop".</p></div>
+        <div className="card empty">
+          <Target size={40} strokeWidth={1.5} />
+          <p>No goals yet. Create one, like "Emergency fund" or "New laptop".</p>
+        </div>
       ) : (
         <div className="grid-3">
           {goals.map((g) => (
-            <div key={g.id} className={`card goal ${g.completed ? 'done' : ''}`}>
-              <div className="page-header">
+            <div key={g.id} className="card goal-card">
+              <div className="row-between">
                 <h3>{g.name}</h3>
-                {g.completed && <span className="badge ok">🎉 Reached</span>}
+                {g.completed && <span className="badge ok">Reached</span>}
               </div>
-              <p><strong>{formatMoney(g.saved_amount)}</strong> <span className="muted">of {formatMoney(g.target_amount)}</span></p>
-              <ProgressBar percent={g.percent} />
-              <p className="muted">
-                {g.percent}% · {formatMoney(g.remaining)} to go
-                {g.deadline && <> · by {formatDate(g.deadline)}</>}
-              </p>
+              <div className="goal-top">
+                <Ring percent={g.percent} size={76} stroke={9} color={g.completed ? SYSTEM.green : SYSTEM.blue}>
+                  {Math.round(g.percent)}%
+                </Ring>
+                <div>
+                  <div className="amount">{formatMoney(g.saved_amount)}</div>
+                  <span className="muted small-text">of {formatMoney(g.target_amount)} · {formatMoney(g.remaining)} to go</span>
+                  {g.deadline && (
+                    <div className="muted small-text" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                      <CalendarDays size={13} />by {formatDate(g.deadline)}
+                    </div>
+                  )}
+                </div>
+              </div>
               {g.monthly_needed && <p className="hint">Save about {formatMoney(g.monthly_needed)} a month to reach it on time.</p>}
-              <div className="actions">
-                {!g.completed && <button className="btn small primary" onClick={(e) => { setOrigin(originOf(e)); setContributing(g) }}>+ Add money</button>}
-                <button className="btn ghost small" onClick={(e) => { setOrigin(originOf(e)); setEditing(g) }}>Edit</button>
-                <button className="btn ghost small danger" onClick={() => remove(g)}>Delete</button>
+              <div className="card-actions">
+                {!g.completed && (
+                  <button className="btn small primary" onClick={(e) => { setOrigin(originOf(e)); setContributing(g) }}>
+                    <Plus size={14} strokeWidth={2.5} />Add money
+                  </button>
+                )}
+                <span style={{ flex: 1 }} />
+                <button className="icon-btn" aria-label="Edit" onClick={(e) => { setOrigin(originOf(e)); setEditing(g) }}><Pencil size={14} /></button>
+                <button className="icon-btn danger" aria-label="Delete" onClick={() => remove(g)}><Trash2 size={14} /></button>
               </div>
             </div>
           ))}
@@ -113,7 +131,7 @@ function GoalForm({ initial, origin, onClose, onSaved }) {
           <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
         </label>
         {error && <p className="error">{error}</p>}
-        <button className="btn primary">Save</button>
+        <button className="btn primary block">Save</button>
       </form>
     </Modal>
   )
@@ -138,7 +156,7 @@ function ContributeForm({ goal, origin, onClose, onSaved }) {
           <input type="number" min="0.01" step="0.01" required value={amount} onChange={(e) => setAmount(e.target.value)} />
         </label>
         {error && <p className="error">{error}</p>}
-        <button className="btn primary">Add</button>
+        <button className="btn primary block">Add</button>
       </form>
     </Modal>
   )
