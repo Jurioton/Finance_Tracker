@@ -143,6 +143,27 @@ class TrendPoint(BaseModel):
     expenses: float
 
 
+class AnalyticsTopExpense(BaseModel):
+    date: dt.date
+    merchant: str
+    category: str
+    amount: float
+
+
+class AnalyticsResponse(BaseModel):
+    start_month: str
+    end_month: str
+    income: float
+    expenses: float
+    balance: float
+    savings_rate: float
+    average_monthly_expenses: float
+    transaction_count: int
+    monthly: list[TrendPoint]
+    by_category: list[CategoryTotal]
+    top_expense: AnalyticsTopExpense | None
+
+
 # ---------- AI ----------
 Engine = Literal["ai", "rules"]
 
