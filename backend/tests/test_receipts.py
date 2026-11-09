@@ -18,7 +18,7 @@ def test_receipt_scan_requires_authentication(client):
 
 
 def test_receipt_scan_returns_extracted_suggestions(client, monkeypatch):
-    register(client)
+    auth = register(client)
     from app.routers import receipts
 
     monkeypatch.setattr(receipts, "extract_receipt_data", lambda image: {
@@ -31,12 +31,14 @@ def test_receipt_scan_returns_extracted_suggestions(client, monkeypatch):
     })
     response = client.post(
         "/receipts/scan",
-        headers={"Authorization": f"Bearer {client.post('/auth/login', data={'username': 'a@example.com', 'password': 'secret123'}).json()['access_token']}"},
+        headers=auth,
         files={"file": ("receipt.png", png_bytes(), "image/png")},
     )
     assert response.status_code == 200
     assert response.json()["amount"] == 245.5
     assert response.json()["suggested_category"] == "Food"
+    # Scanning only suggests values; it must not create a transaction.
+    assert client.get("/transactions", headers=auth).json() == []
 
 
 def test_receipt_scan_rejects_unsupported_mime(client, auth):
