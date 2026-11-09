@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Download, Inbox, Pencil, Plus, Search, Sparkles, Tag, Trash2 } from 'lucide-react'
+import { Download, Inbox, Pencil, Plus, ScanLine, Search, Sparkles, Tag, Trash2 } from 'lucide-react'
 import api, { errorMessage } from '../api'
 import CategoryIcon from '../components/CategoryIcon'
 import Modal from '../components/Modal'
+import ReceiptScanner from '../components/ReceiptScanner'
 import { formatMoney, today } from '../format'
 import { originOf, springs } from '../motion'
 
@@ -41,6 +42,7 @@ export default function Transactions() {
   const [filters, setFilters] = useState(noFilters)
   const [editing, setEditing] = useState(null) // null = closed, {} = new, {id,...} = edit
   const [showCategory, setShowCategory] = useState(false)
+  const [showReceipt, setShowReceipt] = useState(false)
   const [origin, setOrigin] = useState(null) // where the open form grows from
   const [error, setError] = useState('')
 
@@ -89,6 +91,9 @@ export default function Transactions() {
           </button>
           <button className="btn" onClick={exportCsv} title="Export CSV">
             <Download size={16} /><span className="btn-label">Export</span>
+          </button>
+          <button className="btn" onClick={() => setShowReceipt(true)} title="Scan receipt">
+            <ScanLine size={16} /><span className="btn-label">Scan receipt</span>
           </button>
           <button className="btn primary" onClick={(e) => { setOrigin(originOf(e)); setEditing({}) }}>
             <Plus size={17} strokeWidth={2.5} />Add
@@ -184,6 +189,23 @@ export default function Transactions() {
           onClose={() => setShowCategory(false)} onSaved={() => { setShowCategory(false); loadCategories() }} />
       )}
       </AnimatePresence>
+      <AnimatePresence>
+        {showReceipt && (
+          <ReceiptScanner
+            onClose={() => setShowReceipt(false)}
+            onScanned={(result) => {
+              const matched = categories.find((category) => category.type === 'expense' &&
+                category.name.toLowerCase() === (result.suggested_category || '').toLowerCase())
+              setOrigin(null)
+              setEditing({
+                type: 'expense', amount: result.amount ?? '', date: result.date || today(),
+                category_id: matched?.id || '', note: result.note || result.merchant || '',
+              })
+              setShowReceipt(false)
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -192,11 +214,11 @@ function TransactionForm({ initial, categories, origin, onClose, onSaved, onDele
   const [form, setForm] = useState(
     initial.id
       ? { type: initial.type, amount: initial.amount, date: initial.date, category_id: initial.category.id, note: initial.note }
-      : emptyForm,
+      : { ...emptyForm, ...initial },
   )
   const [error, setError] = useState('')
   const [suggestion, setSuggestion] = useState(null) // { engine } when the category was auto-filled
-  const pickedByHand = useRef(Boolean(initial.id))
+  const pickedByHand = useRef(Boolean(initial.id || initial.category_id))
   const options = categories.filter((c) => c.type === form.type)
 
   // Auto-categorize: when the note changes, ask the backend for a category (waits until typing pauses)

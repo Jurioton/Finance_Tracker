@@ -150,3 +150,29 @@ Set these environment variables for anything beyond local development:
 | Dark mode | Mobile (dark) |
 |---|---|
 | ![Dashboard in dark mode](docs/screenshots/dashboard-dark.png) | ![Mobile dark](docs/screenshots/mobile-dark.png) |
+
+
+## Receipt scanning (OCR)
+
+The Transactions page includes **Scan receipt**. Upload a JPG, PNG or WebP receipt (up to 5 MB) to extract a possible merchant, total, date and category. The extracted values are suggestions only: the user reviews and edits them in the normal transaction form and explicitly saves the transaction. Scanned images are processed in memory and are not stored by the API.
+
+### OCR system requirement
+
+The Python package uses Tesseract OCR, which must also be installed on the machine running the backend.
+
+```bash
+# Ubuntu / Debian
+sudo apt-get install tesseract-ocr
+
+# Arch Linux / Omarchy
+sudo pacman -S tesseract tesseract-data-eng
+```
+
+Install the Python dependencies with the existing requirements file:
+
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+The authenticated endpoint is `POST /receipts/scan` and accepts a multipart form field named `file`. It returns editable extraction suggestions and does not create a transaction. OCR accuracy depends on image quality and receipt layout; always verify the amount and date before saving.
