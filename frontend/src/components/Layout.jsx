@@ -1,12 +1,13 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { motion, useScroll, useTransform } from 'motion/react'
-import { ArrowLeftRight, LayoutGrid, LogOut, PieChart, Target, Wallet } from 'lucide-react'
+import { Activity, ArrowLeftRight, LayoutGrid, LogOut, PieChart, Target, Wallet } from 'lucide-react'
 import { useAuth } from '../AuthContext'
 import { springs } from '../motion'
 
 const links = [
   { to: '/', label: 'Dashboard', Icon: LayoutGrid },
   { to: '/transactions', label: 'Transactions', Icon: ArrowLeftRight },
+  { to: '/analytics', label: 'Analytics', Icon: Activity },
   { to: '/budgets', label: 'Budgets', Icon: PieChart },
   { to: '/goals', label: 'Goals', Icon: Target },
 ]
@@ -16,7 +17,6 @@ export default function Layout() {
   const { pathname } = useLocation()
   const current = links.find((l) => l.to === pathname) || links[0]
 
-  // Phone: the page's large title scrolls away and a small one fades into the bar, like iOS
   const { scrollY } = useScroll()
   const compactOpacity = useTransform(scrollY, [24, 56], [0, 1])
 
@@ -55,7 +55,6 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      {/* Phone: iOS-style tab bar at the bottom */}
       <nav className="tabbar" aria-label="Main">
         {links.map(({ to, label, Icon }) => (
           <NavLink key={to} to={to} end={to === '/'}>

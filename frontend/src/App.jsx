@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import Layout from './components/Layout'
+import Analytics from './pages/Analytics'
 import Budgets from './pages/Budgets'
 import Dashboard from './pages/Dashboard'
 import Goals from './pages/Goals'
@@ -22,6 +23,7 @@ export default function App() {
       <Route element={<Protected><Layout /></Protected>}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/transactions" element={<Transactions />} />
+        <Route path="/analytics" element={<Analytics />} />
         <Route path="/budgets" element={<Budgets />} />
         <Route path="/goals" element={<Goals />} />
       </Route>
