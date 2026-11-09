@@ -214,7 +214,7 @@ function TransactionForm({ initial, categories, origin, onClose, onSaved, onDele
   const [form, setForm] = useState(
     initial.id
       ? { type: initial.type, amount: initial.amount, date: initial.date, category_id: initial.category.id, note: initial.note }
-      : emptyForm,
+      : { ...emptyForm, ...initial },
   )
   const [error, setError] = useState('')
   const [suggestion, setSuggestion] = useState(null) // { engine } when the category was auto-filled
