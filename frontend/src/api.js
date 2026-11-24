@@ -26,10 +26,14 @@ api.interceptors.response.use(
 
 // Turns a FastAPI error response into a readable message
 export function errorMessage(err) {
-  const detail = err.response?.data?.detail
+  if (!err.response) {
+    // No response at all: the backend is down, or the browser blocked it (CORS)
+    return `Can't reach the server at ${api.defaults.baseURL}. Check that the backend is running.`
+  }
+  const detail = err.response.data?.detail
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) return detail.map((d) => `${d.loc.at(-1)}: ${d.msg}`).join(', ')
-  return 'Something went wrong. Is the backend running?'
+  return `Something went wrong (error ${err.response.status}). Please try again.`
 }
 
 export default api

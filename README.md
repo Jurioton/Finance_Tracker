@@ -133,6 +133,7 @@ Set these environment variables for anything beyond local development:
 | `SECRET_KEY` | a dev-only value | Signs JWT tokens. **Change this in production.** |
 | `DATABASE_URL` | `sqlite:///./finance.db` | Database location |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated frontend URLs allowed to call the API |
+| `CORS_ORIGIN_REGEX` | localhost / 127.0.0.1, any port | Extra allowed frontend origins for local development. Set it empty in production |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | How long a login lasts |
 | `ANTHROPIC_API_KEY` | not set | Turns on Claude for the AI features (optional) |
 | `AI_MODEL` | `claude-opus-5-5` | Which Claude model to use |
