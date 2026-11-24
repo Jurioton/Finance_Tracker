@@ -1,14 +1,14 @@
 import pytest
 
-from app import ai
+from app import ai, config, ollama
 
 from .test_api import add_tx, category_id
 
 
 @pytest.fixture(autouse=True)
 def no_api_key(monkeypatch):
-    """Tests run offline: force the rules engine unless a test opts in."""
-    monkeypatch.setattr(ai, "ANTHROPIC_API_KEY", "")
+    """Tests run without Ollama: force the rules engine unless a test opts in."""
+    monkeypatch.setattr(ollama, "is_ready", lambda: False)
     ai._insight_cache.clear()
 
 
@@ -19,7 +19,7 @@ def categorize(client, auth, note, type="expense"):
     return (body["category"] or {}).get("name"), body["engine"]
 
 
-def test_status_without_key(client, auth):
+def test_status_without_ollama(client, auth):
     assert client.get("/ai/status", headers=auth).json() == {"ai_enabled": False, "model": None}
 
 
@@ -82,17 +82,17 @@ def test_insights_empty_month(client, auth):
     assert body["insights"][0]["kind"] == "tip"
 
 
-def test_ai_engine_used_when_key_set(client, auth, monkeypatch):
-    monkeypatch.setattr(ai, "ANTHROPIC_API_KEY", "test-key")
+def test_ai_engine_used_when_ollama_ready(client, auth, monkeypatch):
+    monkeypatch.setattr(ollama, "is_ready", lambda: True)
     calls = []
 
-    def fake_claude(system, prompt, schema, max_tokens=2000):
+    def fake_model(system, prompt, schema):
         calls.append(prompt)
         if "category" in schema["properties"]:
             return {"category": "Entertainment"}
         return {"summary": "AI summary", "insights": [{"kind": "tip", "title": "T", "text": "Do X"}]}
 
-    monkeypatch.setattr(ai, "_ask_claude", fake_claude)
+    monkeypatch.setattr(ai, "_ask_model", fake_model)
     assert categorize(client, auth, "Swiggy order") == ("Entertainment", "ai")
 
     add_tx(client, auth, 100, "expense", "Food", day="2026-11-05")
@@ -103,21 +103,22 @@ def test_ai_engine_used_when_key_set(client, auth, monkeypatch):
 
 
 def test_falls_back_to_rules_when_ai_fails(client, auth, monkeypatch):
-    monkeypatch.setattr(ai, "ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setattr(ai, "_ask_claude", lambda *a, **k: None)
+    monkeypatch.setattr(ollama, "is_ready", lambda: True)
+    monkeypatch.setattr(ai, "_ask_model", lambda *a, **k: None)
     assert categorize(client, auth, "Swiggy order") == ("Food", "rules")
     assert client.get("/ai/insights", headers=auth).json()["engine"] == "rules"
 
 
-def test_ask_claude_handles_api_errors(monkeypatch):
-    monkeypatch.setattr(ai, "ANTHROPIC_API_KEY", "test-key")
+def test_ask_model_handles_ollama_down(monkeypatch):
+    monkeypatch.setattr(ollama, "is_ready", lambda: True)
+    monkeypatch.setattr(config, "OLLAMA_URL", "http://127.0.0.1:9")  # nothing listens here
+    assert ai._ask_model("s", "p", {"type": "object"}) is None
 
-    class Broken:
-        class beta:
-            class messages:
-                @staticmethod
-                def create(**kwargs):
-                    raise RuntimeError("network down")
 
-    monkeypatch.setattr(ai, "_get_client", lambda: Broken)
-    assert ai._ask_claude("s", "p", {"type": "object"}) is None
+def test_ask_model_uses_ollama_structured_output(monkeypatch, fake_ollama):
+    monkeypatch.setattr(ollama, "is_ready", lambda: True)
+    fake_ollama.replies = [{"content": '{"category": "Food"}'}]
+    assert ai._ask_model("system", "prompt", {"type": "object"}) == {"category": "Food"}
+    sent = fake_ollama.requests[0]
+    assert sent["format"] == {"type": "object"} and sent["stream"] is False
+    assert sent["model"] == config.OLLAMA_MODEL

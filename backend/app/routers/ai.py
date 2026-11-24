@@ -5,8 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import ai, models, schemas
-from ..config import AI_MODEL
+from .. import ai, config, models, schemas
 from ..database import get_db
 from ..security import get_current_user
 from ..services import budget_out, goal_out, month_bounds
@@ -17,7 +16,7 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 
 @router.get("/status", response_model=schemas.AIStatus)
 def status(user: models.User = Depends(get_current_user)):
-    return schemas.AIStatus(ai_enabled=ai.ai_enabled(), model=AI_MODEL if ai.ai_enabled() else None)
+    return schemas.AIStatus(ai_enabled=ai.ai_enabled(), model=config.OLLAMA_MODEL if ai.ai_enabled() else None)
 
 
 @router.post("/categorize", response_model=schemas.CategorizeResponse)

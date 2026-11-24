@@ -291,7 +291,7 @@ function TransactionForm({ initial, categories, origin, onClose, onSaved, onDele
               {suggestion && (
                 // Materializes in so it's clear *why* the category just changed
                 <motion.span key="suggested" className="suggested"
-                  title={suggestion.engine === 'ai' ? 'Suggested by Claude' : 'Suggested from keywords and your history'}
+                  title={suggestion.engine === 'ai' ? 'Suggested by the local AI model' : 'Suggested from keywords and your history'}
                   initial={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
                   animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}

@@ -1,10 +1,10 @@
 """AI features: auto-categorizing transactions and monthly spending insights.
 
 Each feature has two engines:
-  * "ai"    - asks Claude (only when ANTHROPIC_API_KEY is set)
+  * "ai"    - asks the local AI model through Ollama (when Ollama is running and the model is downloaded)
   * "rules" - a built-in, offline fallback, so the app always works
 
-If the Claude call fails for any reason (no key, network, rate limit), we fall back to rules.
+If the local AI fails for any reason (not running, model missing, bad answer), we fall back to rules.
 """
 import json
 import logging
@@ -14,49 +14,29 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from .config import AI_MODEL, ANTHROPIC_API_KEY
+from . import ollama
 
 log = logging.getLogger(__name__)
 
-_client = None
-
 
 def ai_enabled() -> bool:
-    return bool(ANTHROPIC_API_KEY)
+    return ollama.is_ready()
 
 
-def _get_client():
-    global _client
-    if _client is None:
-        import anthropic
-
-        _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    return _client
-
-
-def _ask_claude(system: str, prompt: str, schema: dict, max_tokens: int = 2000) -> dict | None:
-    """Sends one request to Claude and returns the JSON it produced, or None on any failure."""
+def _ask_model(system: str, prompt: str, schema: dict) -> dict | None:
+    """Sends one request to the local model and returns the JSON it produced, or None on any failure."""
     if not ai_enabled():
         return None
     try:
-        response = _get_client().beta.messages.create(
-            model=AI_MODEL,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-            # Structured output: Claude must answer with JSON matching our schema
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
-            # If the request is declined, the API retries it on a fallback model automatically
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
+        # Structured output: Ollama constrains the model to answer with JSON matching our schema
+        message = ollama.chat(
+            [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            format=schema,
         )
-        if response.stop_reason in ("refusal", "max_tokens"):
-            log.warning("Claude stopped with %s; using rules instead", response.stop_reason)
-            return None
-        text = next(b.text for b in response.content if b.type == "text")
-        return json.loads(text)
+        result = json.loads(message.get("content") or "")
+        return result if isinstance(result, dict) else None
     except Exception as exc:  # any failure -> the rules engine takes over
-        log.warning("Claude request failed (%s); using rules instead", exc)
+        log.warning("Local AI request failed (%s); using rules instead", exc)
         return None
 
 
@@ -142,7 +122,7 @@ def categorize_with_rules(note: str, tx_type: str, categories: list[dict], histo
 def categorize_with_ai(note: str, tx_type: str, categories: list[dict], history: list[dict]) -> str | None:
     names = [c["name"] for c in categories]
     examples = "\n".join(f'- "{h["note"]}" -> {h["category"]}' for h in history[:20]) or "(none yet)"
-    result = _ask_claude(
+    result = _ask_model(
         system="You categorize personal finance transactions. Pick the single best category from the list "
                "given. If none fits reasonably, answer null.",
         prompt=f"Transaction type: {tx_type}\nDescription: {note}\n\nAllowed categories: {', '.join(names)}\n\n"
@@ -153,12 +133,11 @@ def categorize_with_ai(note: str, tx_type: str, categories: list[dict], history:
             "required": ["category"],
             "additionalProperties": False,
         },
-        max_tokens=1000,
     )
     if result is None:
         return None
     category = result.get("category")
-    return category if category in names else ""  # "" means Claude answered but found no fit
+    return category if category in names else ""  # "" means the model answered but found no fit
 
 
 def suggest_category(note: str, tx_type: str, categories: list[dict], history: list[dict]) -> tuple[str | None, str]:
@@ -286,7 +265,7 @@ INSIGHTS_SCHEMA = {
 
 
 def insights_with_ai(stats: dict) -> tuple[str, list[Insight]] | None:
-    result = _ask_claude(
+    result = _ask_model(
         system=(
             "You are a friendly personal finance assistant inside a budgeting app. Given one month of a user's "
             "data, write a one or two sentence summary and 3 to 5 short insights. Each insight is a concrete "
@@ -295,7 +274,7 @@ def insights_with_ai(stats: dict) -> tuple[str, list[Insight]] | None:
             "insight text under 35 words. Use kind 'warning' for problems, 'positive' for good news, 'tip' "
             "for advice and 'info' for neutral observations. Do not invent data."
         ),
-        prompt="Here is the data as JSON:\n" + json.dumps(stats, indent=1),
+        prompt="Here is the data as JSON:\n" + json.dumps(stats, indent=1, ensure_ascii=False),
         schema=INSIGHTS_SCHEMA,
     )
     if result is None:
@@ -307,7 +286,7 @@ def insights_with_ai(stats: dict) -> tuple[str, list[Insight]] | None:
         return None
 
 
-# Cache AI insights so reloading the dashboard doesn't call the API again unless the data changed.
+# Cache AI insights so reloading the dashboard doesn't run the model again unless the data changed.
 _insight_cache: dict[tuple, tuple[str, list[Insight]]] = {}
 
 

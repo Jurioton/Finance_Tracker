@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform } from 'motion/react'
 import { Activity, ArrowLeftRight, LayoutGrid, LogOut, PieChart, Target, Wallet } from 'lucide-react'
 import { useAuth } from '../AuthContext'
 import { springs } from '../motion'
+import Assistant from './Assistant'
 
 const links = [
   { to: '/', label: 'Dashboard', Icon: LayoutGrid },
@@ -54,6 +55,8 @@ export default function Layout() {
       <main className="content">
         <Outlet />
       </main>
+
+      <Assistant />
 
       <nav className="tabbar" aria-label="Main">
         {links.map(({ to, label, Icon }) => (
