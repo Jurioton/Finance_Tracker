@@ -176,3 +176,20 @@ pip install -r requirements.txt
 ```
 
 The authenticated endpoint is `POST /receipts/scan` and accepts a multipart form field named `file`. It returns editable extraction suggestions and does not create a transaction. OCR accuracy depends on image quality and receipt layout; always verify the amount and date before saving.
+
+## Google Pay statement import
+
+The Transactions page includes **Import GPay**. Download a transaction statement PDF from Google Pay and upload it (up to 10 MB). The backend reads every row: **Paid to …** becomes an expense and **Received from …** becomes income. Self transfers are left out, since they are neither.
+
+Before anything is saved you get a review screen. Each row has a suggested category (from the same keyword rules and your own history that power auto-categorize), and you can untick rows or change categories. The screen also checks that the parsed totals match the **Sent** and **Received** totals printed on the statement, so you can tell nothing was missed.
+
+Each imported row keeps its UPI transaction ID, so uploading the same or an overlapping statement again skips rows that are already in your list. Existing databases get the new `transactions.reference` column automatically on startup.
+
+![Google Pay import review](docs/screenshots/gpay-import.png)
+
+Endpoints (both need a login token):
+
+- `POST /statements/gpay/preview`: multipart field `file` (PDF). Returns the parsed rows with suggested categories. Saves nothing.
+- `POST /statements/gpay/import`: JSON `{ "transactions": [{ date, type, amount, note, category_id, upi_id }] }`. Saves the rows and returns `{ imported, skipped_duplicates }`.
+
+The parser lives in `backend/app/gpay_statement.py` and uses `pypdf`. Tests use a made-up statement in `backend/tests/fixtures/` (regenerate it with `make_gpay_fixture.py`).

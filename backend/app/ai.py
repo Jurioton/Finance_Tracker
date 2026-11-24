@@ -69,10 +69,11 @@ KEYWORDS = {
     "expense": {
         "Food": ["food", "swiggy", "zomato", "restaurant", "cafe", "coffee", "lunch", "dinner", "breakfast",
                  "grocer", "groceries", "supermarket", "pizza", "burger", "snack", "tea", "bakery", "dominos",
-                 "kfc", "mcdonald", "blinkit", "zepto", "bigbasket", "vegetable", "fruit", "milk", "meal"],
+                 "kfc", "mcdonald", "blinkit", "zepto", "bigbasket", "vegetable", "fruit", "milk", "meal", "kadai", "canteen", "samosa", "juice",
+                 "biriyani", "biryani", "hotel", "provision", "store", "amul", "drinks", "foods"],
         "Rent": ["rent", "landlord", "lease", "pg", "hostel"],
         "Transport": ["uber", "ola", "rapido", "taxi", "cab", "auto", "metro", "bus", "train", "irctc", "petrol",
-                      "diesel", "fuel", "parking", "toll", "flight", "airline", "fastag"],
+                      "diesel", "fuel", "parking", "toll", "flight", "airline", "fastag", "transport"],
         "Shopping": ["amazon", "flipkart", "myntra", "ajio", "meesho", "shopping", "clothes", "shoes", "shirt",
                      "dress", "mall", "electronics", "gadget", "headphone"],
         "Bills": ["bill", "electricity", "water", "gas", "wifi", "internet", "broadband", "recharge", "mobile",

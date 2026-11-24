@@ -1,4 +1,4 @@
-from conftest import register
+from .conftest import register
 
 
 def test_analytics_returns_period_totals_and_breakdowns(client, auth):
