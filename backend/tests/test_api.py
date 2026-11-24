@@ -118,3 +118,15 @@ def test_csv_export(client, auth):
     lines = res.text.strip().splitlines()
     assert lines[0] == "date,type,category,amount,note"
     assert "Food,250.00,Lunch" in lines[1]
+
+
+def test_cors_allows_local_frontend_on_any_port_so_errors_are_readable(client):
+    # The browser hides any response without this header, so the UI could only show a generic error
+    for origin in ("http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174"):
+        res = client.post("/auth/login", headers={"Origin": origin},
+                          data={"username": "nobody@example.com", "password": "wrong"})
+        assert res.status_code == 401
+        assert res.headers.get("access-control-allow-origin") == origin
+    res = client.post("/auth/login", headers={"Origin": "https://evil.example.com"},
+                      data={"username": "nobody@example.com", "password": "wrong"})
+    assert "access-control-allow-origin" not in res.headers
