@@ -11,8 +11,8 @@ const ICONS = {
   tip: { Icon: Lightbulb, color: SYSTEM.yellow },
 }
 
-// "Monthly insights" card on the dashboard. Uses Claude when the backend has an API key,
-// otherwise the backend's built-in rules.
+// "Monthly insights" card on the dashboard. Written by the local AI model (Ollama) when it's running,
+// otherwise by the backend's built-in rules.
 export default function Insights({ month }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -35,7 +35,7 @@ export default function Insights({ month }) {
         <h3><Sparkles size={18} color={SYSTEM.purple} />Monthly insights</h3>
         {data && (
           <span className={`badge ${data.engine === 'ai' ? 'ai' : 'rules'}`}
-            title={data.engine === 'ai' ? 'Written by Claude' : 'Add an API key to the backend to get AI-written insights'}>
+            title={data.engine === 'ai' ? 'Written by the local AI model' : 'Start Ollama to get AI-written insights'}>
             {data.engine === 'ai' ? 'AI' : 'Smart rules'}
           </span>
         )}

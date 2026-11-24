@@ -245,3 +245,22 @@ class InsightsResponse(BaseModel):
     summary: str
     insights: list[InsightOut]
     engine: Engine
+
+
+# ---------- Assistant ----------
+class ChatMessage(BaseModel):
+    # Only the user's and the assistant's own messages: a client can't send system prompts or tool results
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1, max_length=50)
+
+
+class AssistantStatus(BaseModel):
+    available: bool
+    model_installed: bool
+    model: str
+    url: str
+    message: str | None

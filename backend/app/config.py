@@ -10,6 +10,11 @@ CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5
 # Set CORS_ORIGIN_REGEX to an empty value in production to allow only CORS_ORIGINS.
 CORS_ORIGIN_REGEX = os.getenv("CORS_ORIGIN_REGEX", r"http://(localhost|127\.0\.0\.1)(:\d+)?") or None
 
-# Optional AI features. Without an API key the app uses built-in rules instead.
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-AI_MODEL = os.getenv("AI_MODEL", "claude-opus-5-5")
+# AI features run on a local Ollama server (https://ollama.com), so no API key and no data leaves your computer.
+# Without Ollama running, auto-categorize and insights fall back to built-in rules and the assistant explains how
+# to start it.
+AI_ENABLED = os.getenv("AI_ENABLED", "true").lower() not in ("0", "false", "no", "off")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "180"))  # seconds; the first answer loads the model into memory
+OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "8192"))  # context window in tokens

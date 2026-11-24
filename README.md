@@ -2,7 +2,7 @@
 
 A full stack web app to record income and expenses, set monthly budgets, see spending patterns, and track savings goals.
 
-**Stack:** React (Vite) · FastAPI · SQLAlchemy · SQLite · JWT auth · Recharts · Claude API (optional)
+**Stack:** React (Vite) · FastAPI · SQLAlchemy · SQLite · JWT auth · Recharts · Ollama (local AI, optional)
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
@@ -15,24 +15,51 @@ A full stack web app to record income and expenses, set monthly budgets, see spe
 - **Dashboard:** monthly income, expenses, balance and savings rate; a donut chart of spending by category; a 6‑month income vs expenses trend line.
 - **Savings goals:** set a target and optional deadline, add money over time, and see progress plus how much you need to save each month to finish on time.
 - **✨ Auto-categorize (AI):** type a description like "Zomato biryani" or "Uber to office" and the category is filled in for you. It also learns from how you categorized past transactions.
+- **✨ AI assistant:** an **Ask AI** button on every page opens a chat. Ask things like "How much did I spend on Swiggy last month?", "Am I over any budget?" or "How do I import a bank statement?". It answers from your own transactions, budgets and goals, and knows how every screen of the app works. It runs on a local model through Ollama, so your data never leaves your computer.
 - **✨ Monthly insights (AI):** the dashboard shows a short summary of your month and personalised tips: spending changes vs last month, categories that jumped, budgets at risk (with a daily allowance), savings rate, and whether you're on track for your goals.
 
-## AI features and the API key
+## AI features with Ollama (local AI)
 
-Both AI features work **out of the box with no API key**, using a built-in rules engine (keyword lists, your own transaction history, and month-over-month calculations). The dashboard shows a **Smart rules** badge in this mode.
+All AI in the app runs **on your own computer** through [Ollama](https://ollama.com). There is no API key, no cost, and your financial data is never sent to a cloud service.
 
-To have Claude write the insights and pick categories, set an Anthropic API key before starting the backend. The badge then shows **AI**.
+| Feature | Without Ollama | With Ollama |
+|---|---|---|
+| Auto-categorize | Built-in rules (keywords + your history) | The local model picks the category |
+| Monthly insights | Built-in rules, **Smart rules** badge | Written by the local model, **AI** badge |
+| AI assistant chat | Shows how to start Ollama | Answers questions about your money and the app |
+
+### Setup
+
+1. Install Ollama from https://ollama.com/download (macOS, Windows, Linux). On Linux: `curl -fsSL https://ollama.com/install.sh | sh`
+2. Download the model (about 2 GB, once):
+   ```bash
+   ollama pull llama3.2
+   ```
+3. Make sure Ollama is running. The desktop app runs it in the background; otherwise run `ollama serve` in a terminal.
+4. Start the backend as usual. Open the app and click **Ask AI** at the bottom right. The header shows a green dot and the model name when it's connected.
+
+If Ollama isn't running or the model isn't downloaded, the app keeps working: auto-categorize and insights use the built-in rules, and the assistant shows the exact command to fix it with a **Try again** button.
+
+**Choosing a model:** `llama3.2` (3B) is a good default for most laptops. For better answers on a machine with 16 GB+ RAM, try `ollama pull qwen2.5:7b` or `llama3.1:8b` and set `OLLAMA_MODEL` to that name. The assistant works best with models that support tool calling (Llama 3.1/3.2, Qwen 2.5/3, Mistral). Models without tool support still answer from a summary of the current month.
 
 ```bash
 # macOS/Linux
-export ANTHROPIC_API_KEY=sk-ant-...
+export OLLAMA_MODEL=qwen2.5:7b
 # Windows PowerShell
-$env:ANTHROPIC_API_KEY="sk-ant-..."
+$env:OLLAMA_MODEL="qwen2.5:7b"
 ```
 
-Get a key at https://console.anthropic.com. If a Claude request fails for any reason (no network, rate limit), the app falls back to the rules engine, so it never breaks. Insights are cached per month until your data changes, so reloading the dashboard doesn't call the API again. The code lives in `backend/app/ai.py`.
+### How the assistant works, and why it only sees your data
 
-![Auto-categorize](docs/screenshots/auto-categorize.png)
+- The model never gets database access. It can only call six **read-only tools** on the backend (`get_summary`, `search_transactions`, `get_monthly_trend`, `get_budgets`, `get_goals`, `list_categories`).
+- Every tool is bound to the logged-in user on the server. The model can't pass a user id, so it can't read another account's data, and it can't add, change or delete anything.
+- The browser may only send the conversation's user and assistant messages, so nobody can inject a system prompt or fake tool results.
+- The system prompt includes a guide to every screen of the app (for "how do I…" questions), today's date, and a short snapshot of this month.
+- Answers stream back word by word, with a short status like "Searching your transactions…" while a tool runs.
+
+The code is in `backend/app/assistant.py` (prompt and tools), `backend/app/ollama.py` (Ollama client) and `frontend/src/components/Assistant.jsx` (chat panel).
+
+![AI assistant](docs/screenshots/assistant.png)
 
 ## Project structure
 
@@ -46,8 +73,10 @@ backend/
     schemas.py       Pydantic models that validate requests and shape responses
     security.py      password hashing, JWT creation, current-user dependency
     services.py      shared logic: budget status, goal progress, default categories
-    ai.py            AI features: Claude calls + offline rules fallback
-    routers/         one file per feature: auth, categories, transactions, budgets, goals, dashboard, ai
+    ai.py            auto-categorize and insights: local model + offline rules fallback
+    assistant.py     AI assistant: system prompt and read-only, per-user tools
+    ollama.py        client for the local Ollama server
+    routers/         one file per feature: auth, categories, transactions, budgets, goals, dashboard, ai, assistant
   tests/             pytest API tests (in-memory database)
   requirements.txt
 frontend/
@@ -120,9 +149,11 @@ All endpoints except register and login need an `Authorization: Bearer <token>` 
 | POST | `/goals/{id}/contribute` | Add money to a goal |
 | GET | `/dashboard/summary` | Month totals, spending by category, budget alerts |
 | GET | `/dashboard/trends` | Income and expenses per month (`months`, `end_month`) |
-| GET | `/ai/status` | Whether Claude is enabled |
+| GET | `/ai/status` | Whether the local AI model is available |
 | POST | `/ai/categorize` | Suggest a category for `{note, type}` |
 | GET | `/ai/insights` | Summary and tips for a `month` |
+| GET | `/assistant/status` | Is Ollama running and the model downloaded, with a setup message if not |
+| POST | `/assistant/chat` | `{messages: [{role, content}]}`; streams the answer as newline-delimited JSON events (`status`, `token`, `error`, `done`) |
 
 ## Configuration
 
@@ -135,8 +166,11 @@ Set these environment variables for anything beyond local development:
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated frontend URLs allowed to call the API |
 | `CORS_ORIGIN_REGEX` | localhost / 127.0.0.1, any port | Extra allowed frontend origins for local development. Set it empty in production |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | How long a login lasts |
-| `ANTHROPIC_API_KEY` | not set | Turns on Claude for the AI features (optional) |
-| `AI_MODEL` | `claude-opus-5-5` | Which Claude model to use |
+| `OLLAMA_URL` | `http://localhost:11434` | Where Ollama is running |
+| `OLLAMA_MODEL` | `llama3.2` | Which local model to use (run `ollama pull <name>` first) |
+| `OLLAMA_TIMEOUT` | `180` | Seconds to wait for an answer (the first one loads the model into memory) |
+| `OLLAMA_NUM_CTX` | `8192` | Context window in tokens |
+| `AI_ENABLED` | `true` | Set to `false` to always use the built-in rules and turn the assistant off |
 
 ## Screenshots
 
