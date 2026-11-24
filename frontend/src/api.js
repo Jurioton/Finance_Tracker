@@ -32,6 +32,7 @@ export function errorMessage(err) {
   }
   const detail = err.response.data?.detail
   if (typeof detail === 'string') return detail
+  if (typeof detail?.message === 'string') return detail.message
   if (Array.isArray(detail)) return detail.map((d) => `${d.loc.at(-1)}: ${d.msg}`).join(', ')
   return `Something went wrong (error ${err.response.status}). Please try again.`
 }

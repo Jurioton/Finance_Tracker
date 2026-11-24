@@ -429,7 +429,7 @@ select.just-suggested { box-shadow: 0 0 0 3px var(--tint-purple), inset 0 0 0 1p
   .analytics-range input { width: 100%; min-width: 0; }
 }
 
-/* Google Pay statement import */
+/* Statement import (Google Pay and bank statements) */
 .modal-root.wide .modal:not(.sheet) { max-width: 600px; max-height: calc(100vh - 2rem); overflow-y: auto; }
 .statement-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .statement-badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600; }
@@ -445,4 +445,7 @@ select.just-suggested { box-shadow: 0 0 0 3px var(--tint-purple), inset 0 0 0 1p
 .statement-row select { margin-top: 0.3rem; padding: 0.2rem 0.5rem; min-height: 28px; font-size: 0.82rem; max-width: 100%; }
 .statement-dup { margin-left: 0.4rem; padding: 0.05rem 0.4rem; border-radius: 6px; background: var(--tint-orange); color: var(--orange-text); font-size: 0.72rem; font-weight: 600; }
 .statement-done { align-items: center; text-align: center; }
+.statement-narration { margin-top: 0.1rem; overflow: hidden; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.7rem; white-space: nowrap; text-overflow: ellipsis; }
+.statement-bank { color: var(--text); font-weight: 600; }
+.statement-lock { display: inline-flex; align-items: center; gap: 0.3rem; }
 .statement-done svg { color: var(--green); }

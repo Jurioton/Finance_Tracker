@@ -1,18 +1,43 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'motion/react'
-import { CheckCircle2, FileText, TriangleAlert, Upload } from 'lucide-react'
+import { CheckCircle2, FileText, Landmark, Lock, TriangleAlert, Upload } from 'lucide-react'
 import api, { errorMessage } from '../api'
 import CategoryIcon from './CategoryIcon'
 import Modal from './Modal'
 import { formatDate, formatMoney } from '../format'
 import { springs } from '../motion'
 
-const VIEWS = [{ value: '', label: 'All' }, { value: 'expense', label: 'Paid' }, { value: 'income', label: 'Received' }]
+const SOURCES = {
+  gpay: {
+    title: 'Import Google Pay statement',
+    hint: "In Google Pay, open your profile and download a transaction statement as PDF. We'll read each payment and let you review everything before anything is saved.",
+    accept: 'application/pdf,.pdf',
+    choose: 'Choose statement PDF',
+    types: 'PDF · up to 10 MB',
+    icon: FileText,
+    views: [{ value: '', label: 'All' }, { value: 'expense', label: 'Paid' }, { value: 'income', label: 'Received' }],
+    labels: { income: 'Received', expense: 'Paid' },
+  },
+  bank: {
+    title: 'Import bank statement',
+    hint: "Download your account statement from your bank's net banking or app. Any bank works. Debits become expenses and credits become income, and you can review everything before it's saved.",
+    accept: '.pdf,.csv,.xls,.xlsx,.txt,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    choose: 'Choose statement file',
+    types: 'PDF, Excel or CSV · up to 10 MB',
+    icon: Landmark,
+    views: [{ value: '', label: 'All' }, { value: 'expense', label: 'Debits' }, { value: 'income', label: 'Credits' }],
+    labels: { income: 'Credits', expense: 'Debits' },
+  },
+}
 
-// Import a Google Pay statement PDF in three steps: upload -> review -> done.
-// "Paid to ..." rows become expenses and "Received from ..." rows become income.
-export default function StatementImport({ categories, onClose, onImported }) {
+// Import a statement in three steps: upload -> review -> done.
+// source "gpay": a Google Pay PDF. source "bank": any bank's statement (PDF, Excel or CSV).
+export default function StatementImport({ source = 'gpay', categories, onClose, onImported }) {
+  const config = SOURCES[source]
+  const Icon = config.icon
   const [file, setFile] = useState(null)
+  const [password, setPassword] = useState('')
+  const [needsPassword, setNeedsPassword] = useState(false)
   const [preview, setPreview] = useState(null)
   const [rows, setRows] = useState([]) // preview rows plus { key, selected, category_id }
   const [view, setView] = useState('')
@@ -29,13 +54,17 @@ export default function StatementImport({ categories, onClose, onImported }) {
     setError('')
     const body = new FormData()
     body.append('file', file)
+    if (needsPassword && password) body.append('password', password)
     try {
-      const { data } = await api.post('/statements/gpay/preview', body)
+      const { data } = await api.post(`/statements/${source}/preview`, body)
       setPreview(data)
       setRows(data.transactions.map((t, i) => ({
-        ...t, key: t.upi_id || `row-${i}`, selected: !t.duplicate, category_id: t.suggested_category_id || '',
+        ...t, key: t.reference || t.upi_id || `row-${i}`, selected: !t.duplicate,
+        category_id: t.suggested_category_id || '',
       })))
     } catch (err) {
+      // 423: the PDF is locked. Ask for its password and try again.
+      if (err.response?.status === 423) setNeedsPassword(true)
       setError(errorMessage(err))
     } finally {
       setLoading(false)
@@ -53,10 +82,10 @@ export default function StatementImport({ categories, onClose, onImported }) {
     setLoading(true)
     setError('')
     try {
-      const { data } = await api.post('/statements/gpay/import', {
+      const { data } = await api.post(`/statements/${source}/import`, {
         transactions: chosen.map((r) => ({
           date: r.date, type: r.type, amount: r.amount, note: r.note,
-          category_id: Number(r.category_id), upi_id: r.upi_id,
+          category_id: Number(r.category_id), upi_id: r.upi_id, reference: r.reference,
         })),
       })
       setResult(data)
@@ -87,19 +116,24 @@ export default function StatementImport({ categories, onClose, onImported }) {
 
   if (!preview) {
     return (
-      <Modal title="Import Google Pay statement" onClose={onClose}>
+      <Modal title={config.title} onClose={onClose}>
         <form className="form" onSubmit={read}>
-          <div className="hint">
-            In Google Pay, open your profile and download a transaction statement as PDF. We'll read each payment and
-            let you review everything before anything is saved.
-          </div>
+          <div className="hint">{config.hint}</div>
           <label className="receipt-upload">
-            <FileText size={28} />
-            <strong>{file ? file.name : 'Choose statement PDF'}</strong>
-            <span className="muted small-text">PDF · up to 10 MB</span>
-            <input type="file" accept="application/pdf,.pdf" required
-              onChange={(event) => setFile(event.target.files?.[0] || null)} />
+            <Icon size={28} />
+            <strong>{file ? file.name : config.choose}</strong>
+            <span className="muted small-text">{config.types}</span>
+            <input type="file" accept={config.accept} required
+              onChange={(event) => { setFile(event.target.files?.[0] || null); setNeedsPassword(false); setPassword(''); setError('') }} />
           </label>
+          {needsPassword && (
+            <label>
+              <span className="statement-lock"><Lock size={13} />Statement password</span>
+              <input type="password" autoComplete="off" autoFocus value={password} required
+                placeholder="Often your customer ID or date of birth" onChange={(e) => setPassword(e.target.value)} />
+              <span className="muted small-text">Used only to open this file. It is never saved.</span>
+            </label>
+          )}
           {error && <p className="error">{error}</p>}
           <button className="btn primary block" disabled={!file || loading}>
             <Upload size={16} />{loading ? 'Reading statement…' : 'Read statement'}
@@ -114,22 +148,28 @@ export default function StatementImport({ categories, onClose, onImported }) {
     <Modal title="Review transactions" onClose={onClose} wide>
       <div className="form">
         <div className="statement-meta">
-          {preview.period_start && (
-            <span className="muted small-text">{formatDate(preview.period_start)} – {formatDate(preview.period_end)}</span>
-          )}
+          <span className="muted small-text">
+            {preview.bank_name && <strong className="statement-bank">{preview.bank_name} · </strong>}
+            {preview.period_start && `${formatDate(preview.period_start)} – ${formatDate(preview.period_end)}`}
+          </span>
           {preview.totals_match === true && (
-            <span className="statement-badge ok"><CheckCircle2 size={13} />Matches statement totals</span>
+            <span className="statement-badge ok">
+              <CheckCircle2 size={13} />{source === 'bank' ? 'Every balance adds up' : 'Matches statement totals'}
+            </span>
           )}
           {preview.totals_match === false && (
-            <span className="statement-badge warn" title="Some rows may not have been read. Check against the PDF.">
-              <TriangleAlert size={13} />Totals differ from statement
+            <span className="statement-badge warn" title="Some rows may not have been read. Check against the statement.">
+              <TriangleAlert size={13} />
+              {source === 'bank'
+                ? `${preview.balance_mismatches} balance gap${preview.balance_mismatches === 1 ? '' : 's'}, check the statement`
+                : 'Totals differ from statement'}
             </span>
           )}
         </div>
 
         <div className="summary-strip statement-summary">
-          <div><span>Received</span><strong className="income">{formatMoney(sum('income'))}</strong></div>
-          <div><span>Paid</span><strong>{formatMoney(sum('expense'))}</strong></div>
+          <div><span>{config.labels.income}</span><strong className="income">{formatMoney(sum('income'))}</strong></div>
+          <div><span>{config.labels.expense}</span><strong>{formatMoney(sum('expense'))}</strong></div>
           <div><span>Selected</span><strong>{chosen.length} of {rows.length}</strong></div>
         </div>
 
@@ -142,7 +182,7 @@ export default function StatementImport({ categories, onClose, onImported }) {
 
         <div className="row-between">
           <div className="segmented" role="group" aria-label="Show">
-            {VIEWS.map((v) => (
+            {config.views.map((v) => (
               <button key={v.value} type="button" className={view === v.value ? 'active' : ''} onClick={() => setView(v.value)}>
                 {view === v.value && <motion.span layoutId="statement-view-pill" className="segment-pill" transition={springs.pill} />}
                 <span className="segment-label">{v.label}</span>
@@ -167,11 +207,14 @@ export default function StatementImport({ categories, onClose, onImported }) {
                   onChange={(e) => update(r.key, { selected: e.target.checked })} />
                 <CategoryIcon name={category?.name || 'Other'} size={32} />
                 <div className="row-main">
-                  <div className="row-title" title={r.party}>{r.party}</div>
+                  <div className="row-title" title={r.note}>{r.note}</div>
                   <div className="row-sub">
                     {formatDate(r.date)}{r.time ? ` · ${r.time}` : ''}
                     {r.duplicate && <span className="statement-dup">Already imported</span>}
                   </div>
+                  {r.narration && r.narration !== r.party && (
+                    <div className="statement-narration" title={r.narration}>{r.narration}</div>
+                  )}
                   <select aria-label="Category" value={r.category_id}
                     onChange={(e) => update(r.key, { category_id: Number(e.target.value) || '' })}>
                     <option value="">Choose…</option>
@@ -190,7 +233,7 @@ export default function StatementImport({ categories, onClose, onImported }) {
             {loading ? 'Importing…' : `Import ${chosen.length} transaction${chosen.length === 1 ? '' : 's'}`}
           </button>
           {missingCategory && <span className="muted small-text">Choose a category for every selected row.</span>}
-          <button className="btn block" onClick={() => { setPreview(null); setRows([]); setFile(null) }}>Choose another file</button>
+          <button className="btn block" onClick={() => { setPreview(null); setRows([]); setFile(null); setNeedsPassword(false); setPassword('') }}>Choose another file</button>
         </div>
       </div>
     </Modal>

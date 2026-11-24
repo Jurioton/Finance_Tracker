@@ -78,6 +78,9 @@ class StatementTransaction(BaseModel):
     party: str
     note: str
     upi_id: str | None = None
+    reference: str | None = None  # bank statements: "upi:<ref>" or "bank:<fingerprint>"
+    narration: str | None = None  # the bank's raw description, shown under the cleaned payee
+    balance: float | None = None
     suggested_category_id: int | None = None
     duplicate: bool = False
 
@@ -90,6 +93,12 @@ class StatementPreview(BaseModel):
     totals_match: bool | None = None
     skipped_transfers: int = 0
     transactions: list[StatementTransaction]
+    # bank statements only
+    bank_name: str | None = None
+    file_type: str | None = None
+    opening_balance: float | None = None
+    closing_balance: float | None = None
+    balance_mismatches: int = 0
 
 
 class StatementImportItem(BaseModel):
@@ -99,6 +108,7 @@ class StatementImportItem(BaseModel):
     note: str = Field(default="", max_length=255)
     category_id: int
     upi_id: str | None = Field(default=None, max_length=64)
+    reference: str | None = Field(default=None, max_length=64, pattern=r"^(bank|upi):[0-9a-z:]+$")
 
 
 class StatementImportRequest(BaseModel):
