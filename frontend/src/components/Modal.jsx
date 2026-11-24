@@ -9,7 +9,7 @@ const DRAG_START = 10 // px of movement before a press on the sheet header becom
 // Desktop: a dialog that grows out of the button that opened it (`origin`) and shrinks back into it.
 // Phone: a bottom sheet you can drag down (or fling) to dismiss.
 // Must be rendered inside <AnimatePresence> so the exit animation can play.
-export default function Modal({ title, onClose, children, origin }) {
+export default function Modal({ title, onClose, children, origin, wide = false }) {
   const isSheet = useMediaQuery('(max-width: 640px)')
   const reduce = useReducedMotion()
   const panelRef = useRef(null)
@@ -22,7 +22,7 @@ export default function Modal({ title, onClose, children, origin }) {
   const isPresent = useIsPresent()
   const props = { title, children, panelRef, reduce, onClose: () => onCloseRef.current() }
   return (
-    <div className={`modal-root${isSheet ? ' sheet' : ''}${isPresent ? '' : ' leaving'}`}>
+    <div className={`modal-root${isSheet ? ' sheet' : ''}${wide ? ' wide' : ''}${isPresent ? '' : ' leaving'}`}>
       {isSheet ? <Sheet {...props} /> : <Dialog {...props} origin={origin} />}
     </div>
   )

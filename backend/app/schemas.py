@@ -69,6 +69,47 @@ class TransactionOut(ORM, TransactionBase):
     category: CategoryOut
 
 
+# ---------- Statement import ----------
+class StatementTransaction(BaseModel):
+    date: dt.date
+    time: str | None = None
+    type: TxType
+    amount: float
+    party: str
+    note: str
+    upi_id: str | None = None
+    suggested_category_id: int | None = None
+    duplicate: bool = False
+
+
+class StatementPreview(BaseModel):
+    period_start: dt.date | None = None
+    period_end: dt.date | None = None
+    statement_totals: dict[str, float] | None = None
+    parsed_totals: dict[str, float]
+    totals_match: bool | None = None
+    skipped_transfers: int = 0
+    transactions: list[StatementTransaction]
+
+
+class StatementImportItem(BaseModel):
+    date: dt.date
+    type: TxType
+    amount: float = Field(gt=0)
+    note: str = Field(default="", max_length=255)
+    category_id: int
+    upi_id: str | None = Field(default=None, max_length=64)
+
+
+class StatementImportRequest(BaseModel):
+    transactions: list[StatementImportItem] = Field(min_length=1, max_length=2000)
+
+
+class StatementImportResult(BaseModel):
+    imported: int
+    skipped_duplicates: int
+
+
 # ---------- Budgets ----------
 class BudgetCreate(BaseModel):
     category_id: int

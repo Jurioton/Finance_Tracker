@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Download, Inbox, Pencil, Plus, ScanLine, Search, Sparkles, Tag, Trash2 } from 'lucide-react'
+import { Download, FileText, Inbox, Pencil, Plus, ScanLine, Search, Sparkles, Tag, Trash2 } from 'lucide-react'
 import api, { errorMessage } from '../api'
 import CategoryIcon from '../components/CategoryIcon'
 import Modal from '../components/Modal'
 import ReceiptScanner from '../components/ReceiptScanner'
+import StatementImport from '../components/StatementImport'
 import { formatMoney, today } from '../format'
 import { originOf, springs } from '../motion'
 
@@ -43,6 +44,7 @@ export default function Transactions() {
   const [editing, setEditing] = useState(null) // null = closed, {} = new, {id,...} = edit
   const [showCategory, setShowCategory] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
+  const [showStatement, setShowStatement] = useState(false)
   const [origin, setOrigin] = useState(null) // where the open form grows from
   const [error, setError] = useState('')
 
@@ -94,6 +96,9 @@ export default function Transactions() {
           </button>
           <button className="btn" onClick={() => setShowReceipt(true)} title="Scan receipt">
             <ScanLine size={16} /><span className="btn-label">Scan receipt</span>
+          </button>
+          <button className="btn" onClick={() => setShowStatement(true)} title="Import Google Pay statement">
+            <FileText size={16} /><span className="btn-label">Import GPay</span>
           </button>
           <button className="btn primary" onClick={(e) => { setOrigin(originOf(e)); setEditing({}) }}>
             <Plus size={17} strokeWidth={2.5} />Add
@@ -188,6 +193,12 @@ export default function Transactions() {
         <CategoryForm key="category-form" origin={origin}
           onClose={() => setShowCategory(false)} onSaved={() => { setShowCategory(false); loadCategories() }} />
       )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showStatement && (
+          <StatementImport key="statement-import" categories={categories}
+            onClose={() => setShowStatement(false)} onImported={load} />
+        )}
       </AnimatePresence>
       <AnimatePresence>
         {showReceipt && (

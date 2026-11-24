@@ -41,6 +41,8 @@ class Transaction(Base):
     type: Mapped[str] = mapped_column(String(10))  # "income" or "expense"
     date: Mapped[date] = mapped_column(Date, index=True)
     note: Mapped[str] = mapped_column(String(255), default="")
+    # Id from an imported statement (e.g. a Google Pay UPI transaction id), used to skip duplicates.
+    reference: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True, default=None)
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
 
