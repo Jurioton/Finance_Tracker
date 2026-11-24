@@ -48,8 +48,10 @@ def test_every_layout_reads_the_same_transactions(name):
     assert by_note["ATM cash withdrawal"].amount == 2000.0
     assert by_note["Sunrise Pharmacy"].amount == 210.5
     assert by_note["Interest"].type == "income"
-    # Two identical payments on the same day stay two transactions with different references
+    # Two identical payments on the same day stay two transactions with different references,
+    # and the references are the same whichever file type the statement came in.
     assert len({r.reference for r in rows}) == 10
+    assert [r.reference for r in rows] == [r.reference for r in read("bank_sbi_style.csv")["transactions"]]
 
 
 def test_locked_pdf_needs_the_password():

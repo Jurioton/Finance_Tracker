@@ -429,7 +429,8 @@ def _assign_references(rows: list[BankRow]) -> None:
             else:
                 counts[r.reference] = 1
                 continue
-        text = re.sub(r"\s+", " ", r.narration.lower())
+        # spaces removed: PDFs and Excel files wrap long narrations at different places
+        text = re.sub(r"\s+", "", r.narration.lower())
         bal = "" if r.balance is None else f"{r.balance:.2f}"
         base = f"{r.date}|{r.type}|{r.amount:.2f}|{bal}|{text}"
         n = counts.get(base, 0)

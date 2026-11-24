@@ -194,3 +194,22 @@ Endpoints (both need a login token):
 - `POST /statements/gpay/import`: JSON `{ "transactions": [{ date, type, amount, note, category_id, upi_id }] }`. Saves the rows and returns `{ imported, skipped_duplicates }`.
 
 The parser lives in `backend/app/gpay_statement.py` and uses `pypdf`. Tests use a made-up statement in `backend/tests/fixtures/` (regenerate it with `make_gpay_fixture.py`).
+
+## Bank statement import (any bank)
+
+**Import bank** on the Transactions page reads an account statement from any bank. It is not tied to one bank's layout: it finds the columns itself from their headings (for example `Txn Date`, `Narration`, `Particulars`, `Withdrawal Amt.`, `Deposit`, `Dr / Cr`, `Closing Balance`). Debits become expenses and credits become income.
+
+- **File types:** PDF (including password-protected PDFs, the app asks for the password and never stores it), Excel `.xlsx` and `.xls`, the HTML tables some banks download as `.xls`, CSV/TSV with any separator, and plain-text statements.
+- **Layouts:** separate debit and credit columns, one amount column with a Dr/Cr column or suffix, signed amounts, dates in any common format (`01/10/26`, `01-Oct-2026`, `2026-10-01`, Excel dates), statements listed newest first, narrations wrapped over several lines, and headers repeated on every page.
+- **Balance check:** when the statement has a running balance, each row's balance must follow from the previous one. The balance also decides whether a row is a debit or credit when the columns are unclear. The review screen shows "Every balance adds up", or how many gaps it found.
+- **Readable notes:** narrations like `UPI/DR/412345678901/SWIGGY/YESB/swiggy@ybl/Payment` become `Swiggy`, and ATM withdrawals, interest and bank charges get plain labels. Categories are suggested from these.
+- **No double counting:** each row keeps a reference, so re-uploading a statement skips rows already imported. UPI payments keep their 12-digit UPI reference, which is the same number Google Pay shows, so a payment imported from a Google Pay statement is not added again from the bank statement.
+
+![Bank statement import review](docs/screenshots/bank-import.png)
+
+API:
+
+- `POST /statements/bank/preview`: multipart fields `file` and optional `password`. Returns rows with suggested categories, the detected bank, and the balance check. Saves nothing. A locked PDF returns 423 with `detail.code` `password_required` or `password_wrong`.
+- `POST /statements/bank/import`: same body as the Google Pay import, with `reference` instead of `upi_id`.
+
+The reader lives in `backend/app/bank_statement.py`. Tests run the same ten made-up transactions through six bank layouts and file types (`backend/tests/fixtures/bank_*`, regenerated with `make_bank_fixtures.py`).
